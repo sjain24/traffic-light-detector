@@ -10,9 +10,10 @@ from utils import label_map_util
 from utils import visualization_utils as vis_util
 import time
 import cv2
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
-
-def detect_red(img, Threshold=0.01):
+def detect_red(img, Threshold=0.05):
     """
     detect red and yellow
     :param img:
@@ -39,7 +40,7 @@ def detect_red(img, Threshold=0.01):
 
     # Compare the percentage of red values
     rate = np.count_nonzero(mask) / (desired_dim[0] * desired_dim[1])
-
+    print(rate)
     if rate > Threshold:
         return True
     else:
@@ -69,7 +70,7 @@ def read_traffic_lights(image, boxes, scores, classes, max_boxes_to_draw=20, min
     return red_flag
 
 
-def plot_origin_image(image_np, boxes, classes, scores, category_index):
+def plot_origin_image(image_np, boxes, classes, scores, category_index, image_name):
 
     # Size of the output images.
     IMAGE_SIZE = (12, 8)
@@ -86,7 +87,7 @@ def plot_origin_image(image_np, boxes, classes, scores, category_index):
     plt.imshow(image_np)
 
     # save augmented images into hard drive
-    # plt.savefig( 'output_images/ouput_' + str(idx) +'.png')
+    plt.savefig( 'output_images/ouput_' + image_name)
     plt.show()
 
 
@@ -99,7 +100,7 @@ def detect_traffic_lights(PATH_TO_TEST_IMAGES_DIR, MODEL_NAME, Num_images, plot_
     """
 
     #--------test images------
-    TEST_IMAGE_PATHS = [ os.path.join(PATH_TO_TEST_IMAGES_DIR, 'img_{}.jpg'.format(i)) for i in range(1, Num_images+1) ]
+    TEST_IMAGE_PATHS = [ os.path.join(PATH_TO_TEST_IMAGES_DIR,  'red{}.png'.format(i)) for i in range(1, Num_images+1) ]
 
 
     commands = []
@@ -131,8 +132,8 @@ def detect_traffic_lights(PATH_TO_TEST_IMAGES_DIR, MODEL_NAME, Num_images, plot_
     #--------Load a (frozen) Tensorflow model into memory
     detection_graph = tf.Graph()
     with detection_graph.as_default():
-      od_graph_def = tf.GraphDef()
-      with tf.gfile.GFile(PATH_TO_CKPT, 'rb') as fid:
+      od_graph_def = tf.compat.v1.GraphDef()
+      with tf.compat.v2.io.gfile.GFile(PATH_TO_CKPT, 'rb') as fid:
         serialized_graph = fid.read()
         od_graph_def.ParseFromString(serialized_graph)
         tf.import_graph_def(od_graph_def, name='')
@@ -159,8 +160,9 @@ def detect_traffic_lights(PATH_TO_TEST_IMAGES_DIR, MODEL_NAME, Num_images, plot_
             num_detections = detection_graph.get_tensor_by_name('num_detections:0')
 
             for image_path in TEST_IMAGE_PATHS:
-                image = Image.open(image_path)
-
+                image = Image.open(image_path).convert('RGB')
+                # extract image name
+                image_name = image_path.rsplit('/', 1)[-1]
                 # the array based representation of the image will be used later in order to prepare the
                 # result image with boxes and labels on it.
                 image_np = load_image_into_numpy_array(image)
@@ -182,15 +184,15 @@ def detect_traffic_lights(PATH_TO_TEST_IMAGES_DIR, MODEL_NAME, Num_images, plot_
 
                 # Visualization of the results of a detection.
                 if plot_flag:
-                    plot_origin_image(image_np, boxes, classes, scores, category_index)
+                    plot_origin_image(image_np, boxes, classes, scores, category_index, image_name)
 
     return commands
 
 if __name__ == "__main__":
 
 
-    Num_images = 17
-    PATH_TO_TEST_IMAGES_DIR = './test_images'
+    Num_images = 20
+    PATH_TO_TEST_IMAGES_DIR = '../traffic_signal_database/database'
     MODEL_NAME = 'faster_rcnn_resnet101_coco_11_06_2017'
 
     commands = detect_traffic_lights(PATH_TO_TEST_IMAGES_DIR, MODEL_NAME, Num_images, plot_flag=False)
